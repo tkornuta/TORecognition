@@ -1,0 +1,54 @@
+<Task>
+	<!-- reference task information -->
+	<Reference>
+		<Author>
+			<name>Tomasz Kornuta</name>
+			<link></link>
+		</Author>
+
+		<Description>
+			<brief>TORecognition:simpleTOR</brief>
+			<full>Simple, feature based recognition of textured objects</full>
+		</Description>
+	</Reference>
+
+	<!-- task definition -->
+	<Subtasks>
+		<Subtask name="Main">
+			<Executor name="Processing"  period="0.1">
+				<Component name="Source" type="CameraNUI:CameraNUI" priority="1" bump="0">
+					<param name="lib">freenect</param>
+					<param name="skip_stop">1</param>
+					<param name="camera_mode">rgb</param>
+					<param name="sync">1</param>
+				</Component>
+
+				<Component name="TORecognize" type="TORecognition:TORecognize" priority="2" bump="0">
+				</Component>
+			</Executor>
+
+			<Executor name="Visualization" period="0.1">
+				<Component name="Window" type="CvBasic:CvWindow" priority="1" bump="0">
+					<param name="count">1</param>
+					<param name="title">Good Matches & Object detection</param>
+				</Component>
+			</Executor>
+		</Subtask>
+
+	</Subtasks>
+
+	<!-- pipes connecting datastreams -->
+	<DataStreams>
+		<Source name="Source.out_img">
+			<sink>TORecognize.in_img</sink>
+		</Source>
+		<Source name="TORecognize.out_img">
+			<sink>Window.in_img</sink>
+		</Source>
+
+	</DataStreams>
+</Task>
+
+
+
+

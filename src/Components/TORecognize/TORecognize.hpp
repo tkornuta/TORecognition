@@ -81,8 +81,21 @@ protected:
 	/// Input data stream
 	Base::DataStreamIn <cv::Mat> in_img;
 
-	
+	/// Output data stream - image.
+	Base::DataStreamOut <cv::Mat> out_img;
 
+private:
+	// Keypoint detector - FAST.
+        cv::FastFeatureDetector detector;
+	// Feature descriptor - FREAK.
+        cv::FREAK extractor;
+	// Matcher.
+	cv::BFMatcher matcher;
+	// "Database" of objects.
+        cv::Mat gray_object;
+
+        std::vector<KeyPoint> keypoints_object;
+        cv::Mat descriptors_object;
 };
 
 } //: namespace TORecognize
