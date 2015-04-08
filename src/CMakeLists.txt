@@ -18,7 +18,9 @@ FIND_PACKAGE( OpenCV REQUIRED )
 DISCODE_FIND_DCL(CvCoreTypes)
 
 # Set variable with list of all libraries common for this DCL
+#SET(DisCODe_LIBRARIES ${DisCODe_LIBRARIES} ${Boost_LIBRARIES} ${OpenCV_LIBS})
 SET(DisCODe_LIBRARIES ${DisCODe_LIBRARIES} ${Boost_LIBRARIES})
+
 
 # Check, whether all necessary libraries are linked
 SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,defs") 
@@ -27,11 +29,8 @@ SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,defs")
 # Add source directories
 # ##############################################################################
 
-# CvBlobs components
+# Components
 ADD_SUBDIRECTORY(Components)
-
-# CvBlobs types
-ADD_SUBDIRECTORY(Types)
 
 # Prepare config file to use from another DCLs
 CONFIGURE_FILE(TORecognitionConfig.cmake.in ${CMAKE_INSTALL_PREFIX}/TORecognitionConfig.cmake @ONLY)

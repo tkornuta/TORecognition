@@ -13,10 +13,18 @@
 #include "Property.hpp"
 #include "EventHandler2.hpp"
 
+#include "Types/KeyPoints.hpp"
+
+#include <opencv2/opencv.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/features2d/features2d.hpp>
 
 
 namespace Processors {
 namespace TORecognize {
+
+using namespace cv;
 
 /*!
  * \class TORecognize
@@ -65,6 +73,13 @@ protected:
 	 */
 	bool onStop();
 
+	/*!
+	 * Event handler function.
+	 */
+	void onNewImage();
+
+	/// Input data stream
+	Base::DataStreamIn <cv::Mat> in_img;
 
 	
 

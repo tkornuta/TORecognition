@@ -5,12 +5,14 @@ SET(CMAKE_INCLUDE_CURRENT_DIR ON)
 FILE(GLOB files *.cpp)
 
 # Find required packages
+#FIND_PACKAGE( OpenCV REQUIRED )
 
 
 # Create an executable file from sources:
 ADD_LIBRARY(TORecognize SHARED ${files})
 
 # Link external libraries
-TARGET_LINK_LIBRARIES(TORecognize ${DisCODe_LIBRARIES} )
+#TARGET_LINK_LIBRARIES(TORecognize ${DisCODe_LIBRARIES} )
+TARGET_LINK_LIBRARIES(TORecognize ${DisCODe_LIBRARIES} ${OpenCV_LIBS})
 
 INSTALL_COMPONENT(TORecognize)
