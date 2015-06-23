@@ -16,36 +16,45 @@ namespace Processors {
 namespace TORecognize {
 
 TORecognize::TORecognize(const std::string & name) :
-		Base::Component(name)  {
-
+	Base::Component(name),
+	prop_filename("filename", std::string("")),
+	prop_read_on_init("read_on_init", true),
+	prop_matcher_type("matcher_type", 0)
+{
+	// Register property.
+	registerProperty(prop_filename);
+	registerProperty(prop_read_on_init);
+	registerProperty(prop_matcher_type);
 }
 
 TORecognize::~TORecognize() {
 }
 
 void TORecognize::prepareInterface() {
-	// Register handlers with their dependencies.
-    registerHandler("onNewImage", boost::bind(&TORecognize::onNewImage, this));
-    addDependency("onNewImage", &in_img);
-
 	// Input and output data streams.
-    registerStream("in_img", &in_img);
-    registerStream("out_img", &out_img);
-	//registerStream("out_features", &out_features);
+	registerStream("in_img", &in_img);
+	registerStream("out_img", &out_img);
+
+	// Register handlers with their dependencies.
+	registerHandler("onNewImage", boost::bind(&TORecognize::onNewImage, this));
+	addDependency("onNewImage", &in_img);
+
+	// Register handler - load model manually.
+	registerHandler("Load model", boost::bind(&TORecognize::onLoadModelButtonPressed, this));
+
 }
 
 bool TORecognize::onInit() {
-	// Load the "database" of objects.
-        Mat img_object = imread("/home/tkornuta/discode_ecovi/DCL/ecovi/data/tea_covers/lipton_green_tea_citrus.jpg");
 
-	// Transform to grayscale.
-        cvtColor(img_object, gray_object, COLOR_BGR2GRAY);
+	// Initialize matcher.
+	current_matcher_type = -1;
+	setMatcher();
 
-        //-- Step 1: Detect the keypoints of the object.
-        detector.detect( gray_object, keypoints_object );
-
-        //-- Step 2: Calculate descriptors (feature vectors) of the object.
-        extractor.compute( gray_object, keypoints_object, descriptors_object );
+	if (prop_read_on_init) {
+		// Load the "database" of models of size 1. ;)
+		if ( loadImage(prop_filename, model_img) )
+			extractFeatures(model_img, model_keypoints, model_descriptors);
+	}//: if
 
 	return true;
 }
@@ -62,103 +71,170 @@ bool TORecognize::onStart() {
 	return true;
 }
 
+void TORecognize::setMatcher(){
+	CLOG(LDEBUG) << "setMatcher";
+	// Check current matcher type.
+	if (current_matcher_type == prop_matcher_type) 
+		return;
+
+	// Set matcher.
+	switch(prop_matcher_type) {
+		case 1:	matcher = new cv::BFMatcher(NORM_HAMMING);
+			CLOG(LNOTICE) << "Using BFMatcher with Hamming norm";
+			break;
+		case 2: matcher = new cv::FlannBasedMatcher();
+			CLOG(LNOTICE) << "Using FLANN-based matcher with L2 norm";
+			break;
+		case 3: matcher = new cv::FlannBasedMatcher(new flann::LshIndexParams(20,10,2));
+			CLOG(LNOTICE) << "Using FLANN-based matcher with LSH (Locality-sensitive hashing) norm";
+			break;
+		case 0 :
+		default:matcher = new cv::BFMatcher();
+			CLOG(LNOTICE) << "Using BFMatcher with L2 norm";
+			break;
+	}//: switch
+	// Remember current matcher type.
+	current_matcher_type = prop_matcher_type;
+}
+
+
+void TORecognize::onLoadModelButtonPressed(){
+	CLOG(LDEBUG) << "onLoadModelButtonPressed";
+	// Load the "database" of models - of size 1. ;)
+	if ( loadImage(prop_filename, model_img) )
+		extractFeatures(model_img, model_keypoints, model_descriptors);
+}
+
+bool TORecognize::loadImage(const std::string filename_, cv::Mat & image_) {
+	CLOG(LTRACE) << "loadImage";
+	try {
+	        image_ = imread( filename_ );
+		return true;
+	} catch (...) {
+		CLOG(LWARNING) << "Could not extract load image from file " << filename_;
+		return false;
+	}
+}
+
+
+bool TORecognize::extractFeatures(const cv::Mat image_, std::vector<KeyPoint> & keypoints_, cv::Mat & descriptors_) {
+	CLOG(LTRACE) << "extractFeatures";
+        cv::Mat gray_img;
+
+	// Clear vector of keypoints - just in case...
+	keypoints_.clear();
+
+	try {
+		// Transform to grayscale - if requred.
+		if (image_.channels() == 1)
+			gray_img = image_;
+		else 
+			cvtColor(image_, gray_img, COLOR_BGR2GRAY);
+
+		// Detect the keypoints.
+		detector.detect( gray_img, keypoints_ );
+
+		// Extract descriptors (feature vectors).
+		extractor.compute( gray_img, keypoints_, descriptors_ );
+		return true;
+	} catch (...) {
+		CLOG(LWARNING) << "Could not extract features from image";
+		return false;
+	}//: catch
+}
+
+
 void TORecognize::onNewImage()
 {
-	CLOG(LTRACE) << "TORecognize::onNewImage\n";
+	CLOG(LTRACE) << "onNewImage";
 	try {
-	// Input: a grayscale image.
-        cv::Mat img_scene = in_img.read();
-        cv::Mat gray_scene;
-        cvtColor(img_scene, gray_scene, COLOR_BGR2GRAY);
+	// Input: a colour image.
+        cv::Mat scene_img = in_img.read();
 
-//        out_img.write(gray_scene);
+	// Extract features from scene.
+	std::vector<KeyPoint> scene_keypoints;
+	cv::Mat scene_descriptors;
+	extractFeatures(scene_img, scene_keypoints, scene_descriptors);
 
-
-//        if( !gray_object.data || !gray_scene.data )
-//        { std::cout<< " --(!) Error reading images " << std::endl; return ; }
-
-        //-- Step 1: Detect the keypoints of the scene.
-        std::vector<KeyPoint> keypoints_scene;
-        detector.detect( gray_scene, keypoints_scene );
-
-        //-- Step 2: Calculate descriptors (feature vectors) of the scene.
-        Mat descriptors_scene;
-        extractor.compute( gray_scene, keypoints_scene, descriptors_scene );
-
-
-        //-- Step 3: Matching descriptor vectors using BF matcher with L2 metric.
-//        FlannBasedMatcher matcher;
+        // Find matches using BF matcher with L2 metric.
         std::vector< DMatch > matches;
-        matcher.match( descriptors_object, descriptors_scene, matches );
+
+	// Change matcher type (if required) and find matches.
+	setMatcher();
+        matcher->match( model_descriptors, scene_descriptors, matches );
 
 	// Draw all matches.
-        Mat img_matches1;
-        drawMatches( gray_object, keypoints_object, gray_scene, keypoints_scene,
+/*        Mat img_matches1;
+        drawMatches( model_img, model_keypoints, scene_img, scene_keypoints,
                      matches, img_matches1, Scalar::all(-1), Scalar::all(-1),
                      vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
 
-        out_img.write(img_matches1);
+        out_img.write(img_matches1);*/
 
 
-/*        double max_dist = 0; double min_dist = 100;
+        double max_dist = 0;
+	double min_dist = 100;
         //-- Quick calculation of max and min distances between keypoints
-        for( int i = 0; i < descriptors_object.rows; i++ )
+        for( int i = 0; i < model_descriptors.rows; i++ )
         { double dist = matches[i].distance;
           if( dist < min_dist ) min_dist = dist;
           if( dist > max_dist ) max_dist = dist;
         }
 
-        printf("-- Max dist : %f \n", max_dist );
-        printf("-- Min dist : %f \n", min_dist );
+        CLOG(LDEBUG) << "Max dist : " << max_dist;
+        CLOG(LDEBUG) << "Min dist : " << min_dist;
 
         //-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
         std::vector< DMatch > good_matches;
 
-        for( int i = 0; i < descriptors_object.rows; i++ )
-        { if( matches[i].distance < 3*min_dist )
-           { good_matches.push_back( matches[i]); }
-        }
+        for( int i = 0; i < model_descriptors.rows; i++ ) {
+		if( matches[i].distance < 3*min_dist )
+			good_matches.push_back( matches[i]);
+        }//: for
 
         Mat img_matches2;
-        drawMatches( gray_object, keypoints_object, gray_scene, keypoints_scene,
+        drawMatches( model_img, model_keypoints, scene_img, scene_keypoints,
                      good_matches, img_matches2, Scalar::all(-1), Scalar::all(-1),
                      vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-        out_img.write(img_matches2);*/
+        //out_img.write(img_matches2);
 
-/*
+
         //-- Localize the object
         std::vector<Point2f> obj;
         std::vector<Point2f> scene;
 
-        for( int i = 0; i < good_matches.size(); i++ )
-        {
-          //-- Get the keypoints from the good matches
-          obj.push_back( keypoints_object[ good_matches[i].queryIdx ].pt );
-          scene.push_back( keypoints_scene[ good_matches[i].trainIdx ].pt );
-        }
+        // Get the keypoints from the good matches.
+        for( int i = 0; i < good_matches.size(); i++ ) {
+          obj.push_back( model_keypoints [ good_matches[i].queryIdx ].pt );
+          scene.push_back( scene_keypoints [ good_matches[i].trainIdx ].pt );
+        }//: for
 
+	// Find homography between corresponding points.
         Mat H = findHomography( obj, scene, CV_RANSAC );
 
-        //-- Get the corners from the image_1 ( the object to be "detected" )
+        // Get the corners from the detected "object model".
         std::vector<Point2f> obj_corners(4);
-        obj_corners[0] = cvPoint(0,0); obj_corners[1] = cvPoint( img_object.cols, 0 );
-        obj_corners[2] = cvPoint( img_object.cols, img_object.rows ); obj_corners[3] = cvPoint( 0, img_object.rows );
+        obj_corners[0] = cvPoint(0,0);
+	obj_corners[1] = cvPoint( model_img.cols, 0 );
+        obj_corners[2] = cvPoint( model_img.cols, model_img.rows );
+	obj_corners[3] = cvPoint( 0, model_img.rows );
         std::vector<Point2f> scene_corners(4);
 
+	// Transform corners with found homography.
         perspectiveTransform( obj_corners, scene_corners, H);
 
-        //-- Draw lines between the corners (the mapped object in the scene - image_2 )
-        line( img_matches, scene_corners[0] + Point2f( gray_object.cols, 0), scene_corners[1] + Point2f( gray_object.cols, 0), Scalar(0, 255, 0), 4 );
-        line( img_matches, scene_corners[1] + Point2f( gray_object.cols, 0), scene_corners[2] + Point2f( gray_object.cols, 0), Scalar( 0, 255, 0), 4 );
-        line( img_matches, scene_corners[2] + Point2f( gray_object.cols, 0), scene_corners[3] + Point2f( gray_object.cols, 0), Scalar( 0, 255, 0), 4 );
-        line( img_matches, scene_corners[3] + Point2f( gray_object.cols, 0), scene_corners[0] + Point2f( gray_object.cols, 0), Scalar( 0, 255, 0), 4 );
+        //Draw lines between the corners on the input image.
+	//Mat img_matches3 = img_matches2;
 
-        //-- Show detected matches
-        //imshow( "Good Matches & Object detection", img_matches );
-        out_img.write(img_matches);*/
+        line( img_matches2, scene_corners[0] + Point2f( scene_img.cols, 0), scene_corners[1] + Point2f( scene_img.cols, 0), Scalar(0, 255, 0), 4 );
+        line( img_matches2, scene_corners[1] + Point2f( scene_img.cols, 0), scene_corners[2] + Point2f( scene_img.cols, 0), Scalar( 0, 255, 0), 4 );
+        line( img_matches2, scene_corners[2] + Point2f( scene_img.cols, 0), scene_corners[3] + Point2f( scene_img.cols, 0), Scalar( 0, 255, 0), 4 );
+        line( img_matches2, scene_corners[3] + Point2f( scene_img.cols, 0), scene_corners[0] + Point2f( scene_img.cols, 0), Scalar( 0, 255, 0), 4 );
+
+        out_img.write(img_matches2);
 
 	} catch (...) {
-		CLOG(LERROR) << "TORecognize::onNewImage failed\n";
+		CLOG(LERROR) << "onNewImage failed\n";
 	}
 }
 

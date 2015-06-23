@@ -1,0 +1,58 @@
+<Task>
+	<!-- reference task information -->
+	<Reference>
+		<Author>
+			<name>Tomasz Kornuta</name>
+			<link></link>
+		</Author>
+
+		<Description>
+			<brief>TORecognition:TORSequence</brief>
+			<full>Simple, feature based recognition of textured objects (2D patterns) in sequence of images</full>
+		</Description>
+	</Reference>
+
+	<!-- task definition -->
+	<Subtasks>
+		<Subtask name="Main">
+			<Executor name="Processing"  period="0.1">
+				<Component name="RGBSequence" type="CvBasic:Sequence" priority="2" bump="0">
+					<param name="sequence.directory">%[TASK_LOCATION]%/../data/liptonznao/</param>
+					<param name="sequence.pattern">.*.png</param>
+                                        <param name="mode.loop">1</param>
+                                        <param name="mode.auto_next_image">0</param>
+				</Component>
+
+				<Component name="TORecognize" type="TORecognition:TORecognize" priority="2" bump="0">
+					<param name="filename">/home/tkornuta/discode_ecovi/DCL/ecovi/data/tea_covers/lipton_tea_lemon.jpg</param>
+<!-- lipton_green_tea_citrus.jpg -->
+					<param name="matcher_type">1</param>
+
+				</Component>
+			</Executor>
+
+			<Executor name="Visualization" period="0.1">
+				<Component name="Window" type="CvBasic:CvWindow" priority="1" bump="0">
+					<param name="count">1</param>
+					<param name="title">Object detection</param>
+				</Component>
+			</Executor>
+		</Subtask>
+
+	</Subtasks>
+
+	<!-- pipes connecting datastreams -->
+	<DataStreams>
+		<Source name="RGBSequence.out_img">
+			<sink>TORecognize.in_img</sink>
+		</Source>
+		<Source name="TORecognize.out_img">
+			<sink>Window.in_img</sink>
+		</Source>
+
+	</DataStreams>
+</Task>
+
+
+
+
