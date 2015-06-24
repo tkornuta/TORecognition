@@ -34,8 +34,8 @@
 
 			<Executor name="Visualization" period="0.1">
 				<Component name="Window" type="CvBasic:CvWindow" priority="1" bump="0">
-					<param name="count">1</param>
-					<param name="title">Object detection</param>
+					<param name="count">3</param>
+					<param name="title">All correspondences, Good correspondences, Recognized object</param>
 				</Component>
 			</Executor>
 		</Subtask>
@@ -47,10 +47,16 @@
 		<Source name="Source.out_img">
 			<sink>TORecognize.in_img</sink>
 		</Source>
-		<Source name="TORecognize.out_img">
-			<sink>Window.in_img</sink>
+		<Source name="TORecognize.out_img_all_correspondences">
+			<sink>Window.in_img0</sink>
 		</Source>
 
+		<Source name="TORecognize.out_img_good_correspondences">
+			<sink>Window.in_img1</sink>
+		</Source>
+		<Source name="TORecognize.out_img_object">
+			<sink>Window.in_img2</sink>
+		</Source>
 	</DataStreams>
 </Task>
 

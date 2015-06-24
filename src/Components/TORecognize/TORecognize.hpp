@@ -81,8 +81,17 @@ protected:
 	/// Input data stream
 	Base::DataStreamIn <cv::Mat> in_img;
 
-	/// Output data stream - image.
-	Base::DataStreamOut <cv::Mat> out_img;
+	/// Output data stream - image containing all correspondences.
+	Base::DataStreamOut <cv::Mat> out_img_all_correspondences;
+
+	/// Output data stream - image containing only selected (good) correspondences.
+	Base::DataStreamOut <cv::Mat> out_img_good_correspondences;
+
+	/// Output data stream - image with object.
+	Base::DataStreamOut <cv::Mat> out_img_object;
+
+	/// Property - number of the model that will be returned on output image (along with features and correspondences).
+	Base::Property<int> prop_returned_model_number;
 
 	/// Property - filename (including directory).
 	Base::Property<std::string> prop_filename;
@@ -92,14 +101,17 @@ protected:
 
 private:
 
-	// "Object model" - colour image.
-        cv::Mat model_img;
+	// Vector of images constituting the consecutive models.
+        std::vector<cv::Mat> models_imgs;
 
-	/// Vector of model keypoints.
-        std::vector<KeyPoint> model_keypoints;
+	/// Vector of keypoints of consecutive models.
+        std::vector<std::vector<cv::KeyPoint> > models_keypoints;
 
-	/// Vector of model descriptors.
-        cv::Mat model_descriptors;
+	/// Vector of descriptors of consecutive models.
+        std::vector<cv::Mat> models_descriptors;
+
+	// Vector of names of consecutive models.
+        std::vector<std::string> models_names;
 
 
 
@@ -109,8 +121,13 @@ private:
 	/// Flag used for loading models.
 	bool load_model_flag;
 
-	/// Re-load the model
-	void loadModel();
+	/// Re-load the models from files, detect and extract their features.
+	void loadModels();
+
+	/// Load a single model from file indicated by function parameter.
+	void loadSingleModel(std:: string filename_, std::string name_);
+
+
 
 
 	/// Loads image from file.
