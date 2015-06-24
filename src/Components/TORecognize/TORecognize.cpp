@@ -268,12 +268,13 @@ void TORecognize::loadModels(){
 	// Load single model - for now...
 //	loadSingleModel(prop_filename, "model-q7-c3po");
 
-//	loadSingleModel("/home/tkornuta/discode_ecovi/DCL/TORecognition/data/dilmah_ceylon_lemon.jpg", "dilmah ceylon lemon");
+	loadSingleModel("/home/tkornuta/discode_ecovi/DCL/TORecognition/data/dilmah_ceylon_lemon.jpg", "dilmah ceylon lemon");
 //	loadSingleModel("/home/tkornuta/discode_ecovi/DCL/TORecognition/data/lipton_earl_grey_classic.jpg", "lipton earl grey classic");
 //	loadSingleModel("/home/tkornuta/discode_ecovi/DCL/TORecognition/data/lipton_earl_grey_lemon.jpg", "lipton earl grey lemon");
 	loadSingleModel("/home/tkornuta/discode_ecovi/DCL/TORecognition/data/lipton_green_tea_citrus.jpg", "lipton green tea citrus");
-//	loadSingleModel("/home/tkornuta/discode_ecovi/DCL/TORecognition/data/lipton_tea_lemon.jpg", "lipton tea lemon");
+	loadSingleModel("/home/tkornuta/discode_ecovi/DCL/TORecognition/data/lipton_tea_lemon.jpg", "lipton tea lemon");
 	loadSingleModel("/home/tkornuta/discode_ecovi/DCL/TORecognition/data/twinings_earl_grey.jpg", "twinings earl grey");
+	loadSingleModel("/home/tkornuta/discode_ecovi/DCL/TORecognition/data/ahmad_daarjeling.png", "ahmad daarjeling");
 
 }
 
@@ -328,7 +329,10 @@ void TORecognize::onNewImage()
 		std::vector<KeyPoint> scene_keypoints;
 		cv::Mat scene_descriptors;
 		std::vector< DMatch > matches;
-
+		double best_score = -1;
+		int best_model;
+		std::vector<Point2f> best_hypothesis_corners(4);
+		Point2f best_hypothesis_center;
 
 		// Load image containing the scene.
 		cv::Mat scene_img = in_img.read();
@@ -340,14 +344,14 @@ void TORecognize::onNewImage()
 
 		// Check model.
 		for (unsigned int m=0; m < models_imgs.size(); m++) {
-			CLOG(LWARNING) << "Trying to recognize model (" << m <<"): " << models_names[m];
+			CLOG(LDEBUG) << "Trying to recognize model (" << m <<"): " << models_names[m];
 	
 			if ((models_keypoints[m]).size() == 0) {
 				CLOG(LWARNING) << "Model not valid. Please load model that contain texture";
 				return;
 			}//: if
 
-			CLOG(LINFO) << "Model features: " << models_keypoints[m].size();
+			CLOG(LDEBUG) << "Model features: " << models_keypoints[m].size();
 
 			// Change matcher type (if required).
 			setDescriptorMatcher();
@@ -355,7 +359,7 @@ void TORecognize::onNewImage()
 			// Find matches.
 			matcher->match( models_descriptors[m], scene_descriptors, matches );
 
-			CLOG(LINFO) << "Matches found: " << matches.size();
+			CLOG(LDEBUG) << "Matches found: " << matches.size();
 
 			if (m == prop_returned_model_number) {
 				// Draw all found matches.
@@ -389,16 +393,7 @@ void TORecognize::onNewImage()
 					good_matches.push_back( matches[i]);
 			}//: for
 
-			CLOG(LINFO) << "Good matches: " << good_matches.size();
-
-			if (m == prop_returned_model_number) {
-				// Draw good matches.
-				Mat img_matches2;
-				drawMatches( models_imgs[m], models_keypoints[m], scene_img, scene_keypoints,
-					     good_matches, img_matches2, Scalar::all(-1), Scalar::all(-1),
-					     vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-				out_img_good_correspondences.write(img_matches2);
-			}//: if
+			CLOG(LDEBUG) << "Good matches: " << good_matches.size();
 
 			// Localize the object
 			std::vector<Point2f> obj;
@@ -419,31 +414,23 @@ void TORecognize::onNewImage()
 			obj_corners[1] = cv::Point2f( models_imgs[m].cols, 0 );
 			obj_corners[2] = cv::Point2f( models_imgs[m].cols, models_imgs[m].rows );
 			obj_corners[3] = cv::Point2f( 0, models_imgs[m].rows );
-			std::vector<Point2f> scene_corners(4);
+			std::vector<Point2f> hypobj_corners(4);
 
 			// Transform corners with found homography.
-			perspectiveTransform( obj_corners, scene_corners, H);
+			perspectiveTransform( obj_corners, hypobj_corners, H);
 			
 			// Verification: check resulting shape of object hypothesis.
 			// Compute "center of mass".
-			cv::Point2f center = (scene_corners[0] + scene_corners[1] + scene_corners[2] + scene_corners[3])*.25;
+			cv::Point2f center = (hypobj_corners[0] + hypobj_corners[1] + hypobj_corners[2] + hypobj_corners[3])*.25;
 			std::vector<double> angles(4);
 			cv::Point2f tmp ;
 			// Compute angles.
 			for (int i=0; i<4; i++) {
-				tmp = (scene_corners[i] - center);
+				tmp = (hypobj_corners[i] - center);
 				angles[i] = atan2(tmp.y,tmp.x);
-				CLOG(LERROR)<< tmp << " angle["<<i<<"] = "<< angles[i];
+				CLOG(LDEBUG)<< tmp << " angle["<<i<<"] = "<< angles[i];
 			}//: if
 
-
-/*			// Recalculate angles - sort them by adding 2PI.
-			for (int i=1; i<4; i++) {
-				if (angles[i] < angles[i-1])
-					for (int j=i; j<4; j++)
-						angles[j] += 2*M_PI;
-				CLOG(LERROR)<< "recalculated angle["<<i<<"] = "<< angles[i];
-			}//: if*/
 
 			// Find smallest element.
 			int imin = -1;
@@ -461,33 +448,65 @@ void TORecognize::onNewImage()
 			}//: for
 
 			for (int i=0; i<4; i++) {
-				CLOG(LERROR)<< "reordered angle["<<i<<"] = "<< angles[i];
-			}//: if*/
+				CLOG(LDEBUG)<< "reordered angle["<<i<<"] = "<< angles[i];
+			}//: if
 
 			cv::Scalar colour;
+			double score = (double)good_matches.size()/models_keypoints [m].size();
 			// Check dependency between corners.
 			if ((angles[0] < angles[1]) && (angles[1] < angles[2]) && (angles[2] < angles[3])) {
 				// Order is ok.
 				colour = Scalar(0, 255, 0);
+				CLOG(LINFO)<< "Model ("<<m<<"): keypoints "<< models_keypoints [m].size()<<" corrs = "<< good_matches.size() <<" score "<< score << " VALID";
+				// Remember best model.
+				if (best_score < score) {
+					best_score = score;
+					best_model = m;
+					for (int i=0; i<4; i++)
+						best_hypothesis_corners[i] = hypobj_corners[i];
+					best_hypothesis_center = center;
+				}
 			} else {
 				// Hypothesis not valid.
 				colour = Scalar(0, 0, 255);
+				CLOG(LINFO)<< "Model ("<<m<<"): keypoints "<< models_keypoints [m].size()<<" corrs = "<< good_matches.size() <<" score "<< score << " REJECTED";
 			}//: else
 				
 
 			if (m == prop_returned_model_number) {
-				// Draw lines between the corners on the input image.
-				Mat img_object = scene_img.clone();
+				Mat img_matches2;
+				// Draw good matches.
+				drawMatches( models_imgs[m], models_keypoints[m], scene_img, scene_keypoints,
+					     good_matches, img_matches2, Scalar::all(-1), Scalar::all(-1),
+					     vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+				// Draw the object as lines, with center and top left corner indicated.
+				line( img_matches2, hypobj_corners[0] + Point2f( models_imgs[m].cols, 0), hypobj_corners[1] + Point2f( models_imgs[m].cols, 0), colour, 4 );
+				line( img_matches2, hypobj_corners[1] + Point2f( models_imgs[m].cols, 0), hypobj_corners[2] + Point2f( models_imgs[m].cols, 0), colour, 4 );
+				line( img_matches2, hypobj_corners[2] + Point2f( models_imgs[m].cols, 0), hypobj_corners[3] + Point2f( models_imgs[m].cols, 0), colour, 4 );
+				line( img_matches2, hypobj_corners[3] + Point2f( models_imgs[m].cols, 0), hypobj_corners[0] + Point2f( models_imgs[m].cols, 0), colour, 4 );
+				circle( img_matches2, center + Point2f( models_imgs[m].cols, 0), 2, colour, 4);
+				circle( img_matches2, hypobj_corners[0] + Point2f( models_imgs[m].cols, 0), 2, Scalar(255, 0, 0), 4);
+				out_img_good_correspondences.write(img_matches2);
 
-				line( img_object, scene_corners[0], scene_corners[1], colour, 4 );
-				line( img_object, scene_corners[1], scene_corners[2], colour, 4 );
-				line( img_object, scene_corners[2], scene_corners[3], colour, 4 );
-				line( img_object, scene_corners[3], scene_corners[0], colour, 4 );
-				circle(img_object, center, 2, colour, 4);
-				circle(img_object, scene_corners[0], 2, Scalar(255, 0, 0), 4);
-				out_img_object.write(img_object);
 			}//: if
 		}//: for
+		
+		Mat img_object = scene_img.clone();
+		if (best_score == -1) {
+			CLOG(LWARNING)<< "None of the models was not properly recognized in the image";
+		} else {
+			CLOG(LNOTICE)<< "Best hypothesis of model: "<< models_names[best_model]<< " score: "<< best_score;
+
+			// Draw the final object - as lines, with center and top left corner indicated.
+			line( img_object, best_hypothesis_corners[0], best_hypothesis_corners[1], Scalar(0, 255, 0), 4 );
+			line( img_object, best_hypothesis_corners[1], best_hypothesis_corners[2], Scalar(0, 255, 0), 4 );
+			line( img_object, best_hypothesis_corners[2], best_hypothesis_corners[3], Scalar(0, 255, 0), 4 );
+			line( img_object, best_hypothesis_corners[3], best_hypothesis_corners[0], Scalar(0, 255, 0), 4 );
+			circle( img_object, best_hypothesis_center, 2, Scalar(0, 255, 0), 4);
+			circle( img_object, best_hypothesis_corners[0], 2, Scalar(255, 0, 0), 4);
+		}//: else
+		// Write image to port.
+		out_img_object.write(img_object);
 	} catch (...) {
 		CLOG(LERROR) << "onNewImage failed";
 	}//: catch
