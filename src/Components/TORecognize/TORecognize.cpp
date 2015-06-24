@@ -340,7 +340,7 @@ void TORecognize::onNewImage()
 
 		// Check model.
 		for (unsigned int m=0; m < models_imgs.size(); m++) {
-			CLOG(LINFO) << "Trying to recognize model (" << m <<"): " << models_names[m];
+			CLOG(LWARNING) << "Trying to recognize model (" << m <<"): " << models_names[m];
 	
 			if ((models_keypoints[m]).size() == 0) {
 				CLOG(LWARNING) << "Model not valid. Please load model that contain texture";
@@ -413,29 +413,78 @@ void TORecognize::onNewImage()
 			// Find homography between corresponding points.
 			Mat H = findHomography( obj, scene, CV_RANSAC );
 
-			// Get the corners from the detected "object model".
+			// Get the corners from the detected "object hypothesis".
 			std::vector<Point2f> obj_corners(4);
-			obj_corners[0] = cvPoint(0,0);
-			obj_corners[1] = cvPoint( models_imgs[m].cols, 0 );
-			obj_corners[2] = cvPoint( models_imgs[m].cols, models_imgs[m].rows );
-			obj_corners[3] = cvPoint( 0, models_imgs[m].rows );
+			obj_corners[0] = cv::Point2f(0,0);
+			obj_corners[1] = cv::Point2f( models_imgs[m].cols, 0 );
+			obj_corners[2] = cv::Point2f( models_imgs[m].cols, models_imgs[m].rows );
+			obj_corners[3] = cv::Point2f( 0, models_imgs[m].rows );
 			std::vector<Point2f> scene_corners(4);
 
 			// Transform corners with found homography.
 			perspectiveTransform( obj_corners, scene_corners, H);
 			
-			// Verification: check resulting shape of object - TODO
+			// Verification: check resulting shape of object hypothesis.
+			// Compute "center of mass".
+			cv::Point2f center = (scene_corners[0] + scene_corners[1] + scene_corners[2] + scene_corners[3])*.25;
+			std::vector<double> angles(4);
+			cv::Point2f tmp ;
+			// Compute angles.
+			for (int i=0; i<4; i++) {
+				tmp = (scene_corners[i] - center);
+				angles[i] = atan2(tmp.y,tmp.x);
+				CLOG(LERROR)<< tmp << " angle["<<i<<"] = "<< angles[i];
+			}//: if
 
 
+/*			// Recalculate angles - sort them by adding 2PI.
+			for (int i=1; i<4; i++) {
+				if (angles[i] < angles[i-1])
+					for (int j=i; j<4; j++)
+						angles[j] += 2*M_PI;
+				CLOG(LERROR)<< "recalculated angle["<<i<<"] = "<< angles[i];
+			}//: if*/
+
+			// Find smallest element.
+			int imin = -1;
+			double amin = 1000;
+			for (int i=0; i<4; i++)
+				if (amin > angles[i]) {
+					amin = angles[i];
+					imin = i;
+				}//: if
+
+			// Reorder table.
+			for (int i=0; i<imin; i++) {
+				angles.push_back (angles[0]);
+				angles.erase(angles.begin());
+			}//: for
+
+			for (int i=0; i<4; i++) {
+				CLOG(LERROR)<< "reordered angle["<<i<<"] = "<< angles[i];
+			}//: if*/
+
+			cv::Scalar colour;
+			// Check dependency between corners.
+			if ((angles[0] < angles[1]) && (angles[1] < angles[2]) && (angles[2] < angles[3])) {
+				// Order is ok.
+				colour = Scalar(0, 255, 0);
+			} else {
+				// Hypothesis not valid.
+				colour = Scalar(0, 0, 255);
+			}//: else
+				
 
 			if (m == prop_returned_model_number) {
 				// Draw lines between the corners on the input image.
 				Mat img_object = scene_img.clone();
 
-				line( img_object, scene_corners[0], scene_corners[1], Scalar(0, 255, 0), 4 );
-				line( img_object, scene_corners[1], scene_corners[2], Scalar( 0, 255, 0), 4 );
-				line( img_object, scene_corners[2], scene_corners[3], Scalar( 0, 255, 0), 4 );
-				line( img_object, scene_corners[3], scene_corners[0], Scalar( 0, 255, 0), 4 );
+				line( img_object, scene_corners[0], scene_corners[1], colour, 4 );
+				line( img_object, scene_corners[1], scene_corners[2], colour, 4 );
+				line( img_object, scene_corners[2], scene_corners[3], colour, 4 );
+				line( img_object, scene_corners[3], scene_corners[0], colour, 4 );
+				circle(img_object, center, 2, colour, 4);
+				circle(img_object, scene_corners[0], 2, Scalar(255, 0, 0), 4);
 				out_img_object.write(img_object);
 			}//: if
 		}//: for
