@@ -91,9 +91,6 @@ protected:
 	Base::Property<bool> prop_read_on_init;
 
 private:
-	// Keypoint detector - FAST.
-        cv::FastFeatureDetector detector;
-
 
 	// "Object model" - colour image.
         cv::Mat model_img;
@@ -104,11 +101,6 @@ private:
 	/// Vector of model descriptors.
         cv::Mat model_descriptors;
 
-	/// Loads image from file.
-	bool loadImage(const std::string filename_, cv::Mat & image_);
-
-	/// Returns keypoint with descriptors extracted from image.
-	bool extractFeatures(const cv::Mat image_, std::vector<KeyPoint> & keypoints_, cv::Mat & descriptors_);
 
 
 	/// Sets load_model_flag when the used presses button.
@@ -119,6 +111,43 @@ private:
 
 	/// Re-load the model
 	void loadModel();
+
+
+	/// Loads image from file.
+	bool loadImage(const std::string filename_, cv::Mat & image_);
+
+	/// Returns keypoint with descriptors extracted from image.
+	bool extractFeatures(const cv::Mat image_, std::vector<KeyPoint> & keypoints_, cv::Mat & descriptors_);
+
+
+
+	/// Keypoint detector.
+	Ptr<FeatureDetector> detector;
+
+	/// Sets the keypoint detector according to the current selection (see: prop_detector_type).
+	void setKeypointDetector();
+	
+	///  Propery - type of keypoint detector: 0 - FAST (default), 1 - STAR , 2 - SIFT , 3 - SURF , 4 - ORB , 5 - BRISK , 6 - MSER , 7 - GFTT , 8 - GFTT, 9 - Dense, 10 - SimpleBlob
+	Base::Property<int> prop_detector_type;
+
+	/// Variable denoting current detector type - used for dynamic switching between detectors.
+	int current_detector_type;
+
+
+
+	/// Feature descriptor
+        cv::Ptr<cv::DescriptorExtractor> extractor;
+
+	/// Sets the extreactor according to the current selection (see: prop_extractor_type).
+	void setDescriptorExtractor();
+	
+	///  Propery - type of feature descriptor: 0 - SIFT (default), 1 - SURF, 2 - BRIEF, 3 - BRISK, 4 - ORB, 5 - FREAK
+	Base::Property<int> prop_extractor_type;
+
+	/// Variable denoting current extractor type - used for dynamic switching between extractors.
+	int current_extractor_type;
+
+
 
 	// Matcher.
 	DescriptorMatcher* matcher;
@@ -131,20 +160,6 @@ private:
 
 	/// Variable denoting current matcher type - used for dynamic switching between matchers.
 	int current_matcher_type;
-
-
-
-	// Feature descriptor
-        cv::Ptr<cv::DescriptorExtractor> extractor;
-
-	/// Sets the extreactor according to the current selection (see: prop_extractor_type).
-	void setDescriptorExtractor();
-	
-	///  Propery - type of descriptor matcher: 0 - SIFT (default), 1 - SURF, 2 - BRIEF, 3 - BRISK, 4 - ORB, 5 - FREAK
-	Base::Property<int> prop_extractor_type;
-
-	/// Variable denoting current extractor type - used for dynamic switching between extractors.
-	int current_extractor_type;
 
 };
 

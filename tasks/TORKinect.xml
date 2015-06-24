@@ -25,6 +25,7 @@
 
 				<Component name="TORecognize" type="TORecognition:TORecognize" priority="2" bump="0">
 					<param name="filename">/home/tkornuta/discode_ecovi/DCL/ecovi/data/tea_covers/lipton_green_tea_citrus.jpg</param>
+					<param name="keypoint_detector_type">2</param>
 					<param name="descriptor_extractor_type">0</param>
 					<param name="descriptor_matcher_type">1</param>
 

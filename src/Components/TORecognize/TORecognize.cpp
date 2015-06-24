@@ -19,14 +19,16 @@ TORecognize::TORecognize(const std::string & name) :
 	Base::Component(name),
 	prop_filename("filename", std::string("")),
 	prop_read_on_init("read_on_init", true),
-	prop_matcher_type("descriptor_matcher_type", 0),
-	prop_extractor_type("descriptor_extractor_type", 0)
+	prop_detector_type("keypoint_detector_type", 0),
+	prop_extractor_type("descriptor_extractor_type", 0),
+	prop_matcher_type("descriptor_matcher_type", 0)
 {
 	// Register property.
 	registerProperty(prop_filename);
 	registerProperty(prop_read_on_init);
-	registerProperty(prop_matcher_type);
+	registerProperty(prop_detector_type);
 	registerProperty(prop_extractor_type);
+	registerProperty(prop_matcher_type);
 }
 
 TORecognize::~TORecognize() {
@@ -47,6 +49,10 @@ void TORecognize::prepareInterface() {
 }
 
 bool TORecognize::onInit() {
+
+	// Initialize detector.
+	current_detector_type = -1;
+	setKeypointDetector();
 
 	// Initialize extractor.
 	current_extractor_type = -1;
@@ -75,6 +81,71 @@ bool TORecognize::onStop() {
 bool TORecognize::onStart() {
 	return true;
 }
+
+
+void TORecognize::setKeypointDetector(){
+	CLOG(LDEBUG) << "setKeypointDetector";
+	// Check current detector type.
+	if (current_detector_type == prop_detector_type) 
+		return;
+
+	// Set detector.
+	switch(prop_detector_type) {
+		case 1:
+			detector = FeatureDetector::create("STAR");
+			CLOG(LNOTICE) << "Using STAR detector";
+			break;
+		case 2:
+			detector = FeatureDetector::create("SIFT");
+			CLOG(LNOTICE) << "Using SIFT detector";
+			break;
+		case 3:
+			detector = FeatureDetector::create("SURF");
+			CLOG(LNOTICE) << "Using SURF detector";
+			break;
+		case 4:
+			detector = FeatureDetector::create("ORB");
+			CLOG(LNOTICE) << "Using ORB detector";
+			break;
+		case 5:
+			detector = FeatureDetector::create("BRISK");
+			CLOG(LNOTICE) << "Using BRISK detector";
+			break;
+
+		case 6:
+			detector = FeatureDetector::create("MSER");
+			CLOG(LNOTICE) << "Using MSER detector";
+			break;
+		case 7:
+			detector = FeatureDetector::create("GFTT");
+			CLOG(LNOTICE) << "Using GFTT detector";
+			break;
+		case 8:
+			detector = FeatureDetector::create("HARRIS");
+			CLOG(LNOTICE) << "Using HARRIS detector";
+			break;
+		case 9:
+			detector = FeatureDetector::create("Dense");
+			CLOG(LNOTICE) << "Using Dense detector";
+			break;
+		case 10:
+			detector = FeatureDetector::create("SimpleBlob");
+			CLOG(LNOTICE) << "Using SimpleBlob detector";
+			break;
+		case 0 :
+		default:
+			detector = FeatureDetector::create("FAST");
+			CLOG(LNOTICE) << "Using FAST detector";
+			break;
+	}//: switch
+	// Remember current detector type.
+	current_detector_type = prop_detector_type;
+
+	// Reload the model.
+	load_model_flag = true;
+}
+
+
 
 void TORecognize::setDescriptorExtractor(){
 	CLOG(LDEBUG) << "setDescriptorExtractor";
@@ -202,7 +273,7 @@ bool TORecognize::extractFeatures(const cv::Mat image_, std::vector<KeyPoint> & 
 			cvtColor(image_, gray_img, COLOR_BGR2GRAY);
 
 		// Detect the keypoints.
-		detector.detect( gray_img, keypoints_ );
+		detector->detect( gray_img, keypoints_ );
 
 		// Extract descriptors (feature vectors).
 		extractor->compute( gray_img, keypoints_, descriptors_ );
@@ -218,7 +289,8 @@ void TORecognize::onNewImage()
 {
 	CLOG(LTRACE) << "onNewImage";
 	try {
-		// Change descriptor extractor type (if required).
+		// Change keypoint detector and descriptor extractor types (if required).
+		setKeypointDetector();
 		setDescriptorExtractor();
 
 		// Re-load the model - extract features from model.
@@ -319,10 +391,10 @@ void TORecognize::onNewImage()
 		//Draw lines between the corners on the input image.
 		//Mat img_matches3 = img_matches2;
 
-		line( img_matches2, scene_corners[0] + Point2f( scene_img.cols, 0), scene_corners[1] + Point2f( scene_img.cols, 0), Scalar(0, 255, 0), 4 );
-		line( img_matches2, scene_corners[1] + Point2f( scene_img.cols, 0), scene_corners[2] + Point2f( scene_img.cols, 0), Scalar( 0, 255, 0), 4 );
-		line( img_matches2, scene_corners[2] + Point2f( scene_img.cols, 0), scene_corners[3] + Point2f( scene_img.cols, 0), Scalar( 0, 255, 0), 4 );
-		line( img_matches2, scene_corners[3] + Point2f( scene_img.cols, 0), scene_corners[0] + Point2f( scene_img.cols, 0), Scalar( 0, 255, 0), 4 );
+		line( img_matches2, scene_corners[0] + Point2f( model_img.cols, 0), scene_corners[1] + Point2f( model_img.cols, 0), Scalar(0, 255, 0), 4 );
+		line( img_matches2, scene_corners[1] + Point2f( model_img.cols, 0), scene_corners[2] + Point2f( model_img.cols, 0), Scalar( 0, 255, 0), 4 );
+		line( img_matches2, scene_corners[2] + Point2f( model_img.cols, 0), scene_corners[3] + Point2f( model_img.cols, 0), Scalar( 0, 255, 0), 4 );
+		line( img_matches2, scene_corners[3] + Point2f( model_img.cols, 0), scene_corners[0] + Point2f( model_img.cols, 0), Scalar( 0, 255, 0), 4 );
 
 //		out_img.write(img_matches2);
 
