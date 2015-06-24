@@ -336,11 +336,11 @@ void TORecognize::onNewImage()
 
 		// Load image containing the scene.
 		cv::Mat scene_img = in_img.read();
-		CLOG(LINFO) << "Scene features: " << scene_keypoints.size();
 
 
 		// Extract features from scene.
 		extractFeatures(scene_img, scene_keypoints, scene_descriptors);
+		CLOG(LINFO) << "Scene features: " << scene_keypoints.size();
 
 		// Check model.
 		for (unsigned int m=0; m < models_imgs.size(); m++) {
