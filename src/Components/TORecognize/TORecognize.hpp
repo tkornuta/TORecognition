@@ -90,19 +90,11 @@ protected:
 	///  Propery - if set, reads model image at start.
 	Base::Property<bool> prop_read_on_init;
 
-	///  Propery - type of descriptor matcher: 0 - BF with L2 (default), 1 - BF with Hamming, 2 - FLANN with L2, 3 - FLANN with LSH
-	Base::Property<int> prop_matcher_type;
-
 private:
 	// Keypoint detector - FAST.
         cv::FastFeatureDetector detector;
 
-	// Feature descriptor - FREAK.
-        cv::FREAK extractor;
 
-	// Matcher.
-	DescriptorMatcher* matcher;
-	
 	// "Object model" - colour image.
         cv::Mat model_img;
 
@@ -118,14 +110,41 @@ private:
 	/// Returns keypoint with descriptors extracted from image.
 	bool extractFeatures(const cv::Mat image_, std::vector<KeyPoint> & keypoints_, cv::Mat & descriptors_);
 
-	/// Re-load the model when the used presses button.
-	void onLoadModelButtonPressed();
 
-	/// Sets the matcher according to the current selection (see: prop_matcher_type).
-	void setMatcher();
+	/// Sets load_model_flag when the used presses button.
+	void onLoadModelButtonPressed();
 	
+	/// Flag used for loading models.
+	bool load_model_flag;
+
+	/// Re-load the model
+	void loadModel();
+
+	// Matcher.
+	DescriptorMatcher* matcher;
+	
+	/// Sets the matcher according to the current selection (see: prop_matcher_type).
+	void setDescriptorMatcher();
+	
+	///  Propery - type of descriptor matcher: 0 - BF with L2 (default), 1 - BF with L2 and crosscheck, 2 - BF with Hamming, 3 - BF with Hamming and crosscheck, 4 - FLANN with L2, 5 - FLANN with LSH
+	Base::Property<int> prop_matcher_type;
+
 	/// Variable denoting current matcher type - used for dynamic switching between matchers.
 	int current_matcher_type;
+
+
+
+	// Feature descriptor
+        cv::Ptr<cv::DescriptorExtractor> extractor;
+
+	/// Sets the extreactor according to the current selection (see: prop_extractor_type).
+	void setDescriptorExtractor();
+	
+	///  Propery - type of descriptor matcher: 0 - SIFT (default), 1 - SURF, 2 - BRIEF, 3 - BRISK, 4 - ORB, 5 - FREAK
+	Base::Property<int> prop_extractor_type;
+
+	/// Variable denoting current extractor type - used for dynamic switching between extractors.
+	int current_extractor_type;
 
 };
 

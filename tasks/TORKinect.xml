@@ -24,14 +24,17 @@
 				</Component>
 
 				<Component name="TORecognize" type="TORecognition:TORecognize" priority="2" bump="0">
-					<param name="filename">"/home/tkornuta/discode_ecovi/DCL/ecovi/data/tea_covers/lipton_green_tea_citrus.jpg"</param>
+					<param name="filename">/home/tkornuta/discode_ecovi/DCL/ecovi/data/tea_covers/lipton_green_tea_citrus.jpg</param>
+					<param name="descriptor_extractor_type">0</param>
+					<param name="descriptor_matcher_type">1</param>
+
 				</Component>
 			</Executor>
 
 			<Executor name="Visualization" period="0.1">
 				<Component name="Window" type="CvBasic:CvWindow" priority="1" bump="0">
 					<param name="count">1</param>
-					<param name="title">Good Matches & Object detection</param>
+					<param name="title">Object detection</param>
 				</Component>
 			</Executor>
 		</Subtask>

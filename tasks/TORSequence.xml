@@ -23,11 +23,11 @@
                                         <param name="mode.auto_next_image">0</param>
 				</Component>
 
-				<Component name="TORecognize" type="TORecognition:TORecognize" priority="2" bump="0">
-					<param name="filename">/home/tkornuta/discode_ecovi/DCL/ecovi/data/tea_covers/lipton_tea_lemon.jpg</param>
-<!-- lipton_green_tea_citrus.jpg -->
-					<param name="matcher_type">1</param>
-
+				<Component name="TORecognize" type="TORecognition:TORecognize" priority="2" bump="3">
+<!--					<param name="filename">/home/tkornuta/discode_ecovi/DCL/ecovi/data/tea_covers/lipton_tea_lemon.jpg</param>-->
+					<param name="filename">/home/tkornuta/discode_ecovi/DCL/ecovi/data/lipton_green_tea_citrus/front150x60.jpg</param>
+					<param name="descriptor_extractor_type">1</param>
+					<param name="descriptor_matcher_type">2</param>
 				</Component>
 			</Executor>
 
