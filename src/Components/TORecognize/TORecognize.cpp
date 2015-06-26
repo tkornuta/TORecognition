@@ -22,7 +22,8 @@ TORecognize::TORecognize(const std::string & name) :
 	prop_detector_type("keypoint_detector_type", 0),
 	prop_extractor_type("descriptor_extractor_type", 0),
 	prop_matcher_type("descriptor_matcher_type", 0),
-	prop_returned_model_number("returned_model_number", 0)
+	prop_returned_model_number("returned_model_number", 0),
+	prop_recognized_object_limit("recognized_object_limit", 1)
 {
 	// Register property.
 	registerProperty(prop_filename);
@@ -31,6 +32,7 @@ TORecognize::TORecognize(const std::string & name) :
 	registerProperty(prop_extractor_type);
 	registerProperty(prop_matcher_type);
 	registerProperty(prop_returned_model_number);
+	registerProperty(prop_recognized_object_limit);
 }
 
 TORecognize::~TORecognize() {
@@ -266,7 +268,7 @@ void TORecognize::loadModels(){
 	models_names.clear();
 
 	// Load single model - for now...
-//	loadSingleModel(prop_filename, "model-q7-c3po");
+//	loadSingleModel(prop_filename, "c3po-ultra-model");
 
 	loadSingleModel("/home/tkornuta/discode_ecovi/DCL/TORecognition/data/dilmah_ceylon_lemon.jpg", "dilmah ceylon lemon");
 //	loadSingleModel("/home/tkornuta/discode_ecovi/DCL/TORecognition/data/lipton_earl_grey_classic.jpg", "lipton earl grey classic");
@@ -315,6 +317,48 @@ bool TORecognize::extractFeatures(const cv::Mat image_, std::vector<KeyPoint> & 
 }
 
 
+void TORecognize::storeObjectHypothesis(std::string name_, cv::Point2f center_, std::vector<cv::Point2f> corners_, double score_) {
+	// Special case: do not insert anything is smaller than one;)
+	if (prop_recognized_object_limit<1)
+		return;
+
+	// Special case: insert first object hypothesis.
+	if (recognized_names.size() == 0) {
+		recognized_names.push_back(name_);
+		recognized_centers.push_back(center_);
+		recognized_corners.push_back(corners_);
+		recognized_scores.push_back(score_);
+		return;
+	}//: if
+
+	// Iterators.
+	std::vector<std::string>::iterator names_it = recognized_names.begin();
+	std::vector<cv::Point2f>::iterator centers_it = recognized_centers.begin();
+	std::vector<std::vector<cv::Point2f> >::iterator corners_it= recognized_corners.begin();
+	std::vector<double>::iterator scores_it= recognized_scores.begin();
+
+	// Insert in proper order.
+	for (; names_it<recognized_names.end(); names_it++, centers_it++, corners_it++, scores_it++) {
+		if (*scores_it < score_){
+			// Insert here! (i.e. before)
+			recognized_names.insert(names_it, name_);
+			recognized_centers.insert(centers_it, center_);
+			recognized_corners.insert(corners_it, corners_);
+			recognized_scores.insert(scores_it, score_);
+			break;
+		}//: if
+	}//: for*/
+
+	// Limit the size of vectors.
+	if (recognized_names.size() > prop_recognized_object_limit){
+		recognized_names.pop_back();
+		recognized_centers.pop_back();
+		recognized_corners.pop_back();
+		recognized_scores.pop_back();
+	}//: if
+}
+
+
 void TORecognize::onNewImage()
 {
 	CLOG(LTRACE) << "onNewImage";
@@ -329,13 +373,17 @@ void TORecognize::onNewImage()
 		std::vector<KeyPoint> scene_keypoints;
 		cv::Mat scene_descriptors;
 		std::vector< DMatch > matches;
-		double best_score = -1;
-		int best_model;
-		std::vector<Point2f> best_hypothesis_corners(4);
-		Point2f best_hypothesis_center;
+
+		// Clear vectors! ;)
+		recognized_names.clear();
+		recognized_centers.clear();
+		recognized_corners.clear();
+		recognized_scores.clear();
+
 
 		// Load image containing the scene.
 		cv::Mat scene_img = in_img.read();
+
 
 
 		// Extract features from scene.
@@ -458,14 +506,9 @@ void TORecognize::onNewImage()
 				// Order is ok.
 				colour = Scalar(0, 255, 0);
 				CLOG(LINFO)<< "Model ("<<m<<"): keypoints "<< models_keypoints [m].size()<<" corrs = "<< good_matches.size() <<" score "<< score << " VALID";
-				// Remember best model.
-				if (best_score < score) {
-					best_score = score;
-					best_model = m;
-					for (int i=0; i<4; i++)
-						best_hypothesis_corners[i] = hypobj_corners[i];
-					best_hypothesis_center = center;
-				}
+				// Store the model in a list in proper order.
+				storeObjectHypothesis(models_names[m], center, hypobj_corners, score);
+
 			} else {
 				// Hypothesis not valid.
 				colour = Scalar(0, 0, 255);
@@ -492,18 +535,20 @@ void TORecognize::onNewImage()
 		}//: for
 		
 		Mat img_object = scene_img.clone();
-		if (best_score == -1) {
+		if (recognized_names.size() == 0) {
 			CLOG(LWARNING)<< "None of the models was not properly recognized in the image";
 		} else {
-			CLOG(LNOTICE)<< "Best hypothesis of model: "<< models_names[best_model]<< " score: "<< best_score;
-
-			// Draw the final object - as lines, with center and top left corner indicated.
-			line( img_object, best_hypothesis_corners[0], best_hypothesis_corners[1], Scalar(0, 255, 0), 4 );
-			line( img_object, best_hypothesis_corners[1], best_hypothesis_corners[2], Scalar(0, 255, 0), 4 );
-			line( img_object, best_hypothesis_corners[2], best_hypothesis_corners[3], Scalar(0, 255, 0), 4 );
-			line( img_object, best_hypothesis_corners[3], best_hypothesis_corners[0], Scalar(0, 255, 0), 4 );
-			circle( img_object, best_hypothesis_center, 2, Scalar(0, 255, 0), 4);
-			circle( img_object, best_hypothesis_corners[0], 2, Scalar(255, 0, 0), 4);
+			
+			for (int h=0; h<recognized_names.size(); h++) {
+				// Draw the final object - as lines, with center and top left corner indicated.
+				line( img_object, recognized_corners[h][0], recognized_corners[h][1], Scalar(0, 255, 0), 4 );
+				line( img_object, recognized_corners[h][1], recognized_corners[h][2], Scalar(0, 255, 0), 4 );
+				line( img_object, recognized_corners[h][2], recognized_corners[h][3], Scalar(0, 255, 0), 4 );
+				line( img_object, recognized_corners[h][3], recognized_corners[h][0], Scalar(0, 255, 0), 4 );
+				circle( img_object, recognized_centers[h], 2, Scalar(0, 255, 0), 4);
+				circle( img_object, recognized_corners[h][0], 2, Scalar(255, 0, 0), 4);
+				CLOG(LNOTICE)<< "Hypothesis (): model: "<< recognized_names[h]<< " score: "<< recognized_scores[h];
+			}//: for
 		}//: else
 		// Write image to port.
 		out_img_object.write(img_object);

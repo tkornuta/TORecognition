@@ -99,6 +99,10 @@ protected:
 	///  Propery - if set, reads model image at start.
 	Base::Property<bool> prop_read_on_init;
 
+	/// Property - limit of returned/displayed recognized objects.
+	Base::Property<int> prop_recognized_object_limit;
+
+
 private:
 
 	// Vector of images constituting the consecutive models.
@@ -110,9 +114,25 @@ private:
 	/// Vector of descriptors of consecutive models.
         std::vector<cv::Mat> models_descriptors;
 
-	// Vector of names of consecutive models.
+	/// Vector of names of consecutive models.
         std::vector<std::string> models_names;
 
+
+
+	/// Vector containing names of recognized objects.
+	std::vector<std::string> recognized_names;
+
+	/// Vector containing centers of recognized objects (image coordinates).
+	std::vector<cv::Point2f> recognized_centers;
+
+	/// Vector containing quadruples of corners of recognized objects (image coordinates).
+	std::vector<std::vector<cv::Point2f> > recognized_corners;
+
+	/// Vector containint scores of recognized objects.
+	std::vector<double> recognized_scores;
+
+	/// Stores recognized hypothesis in proper order - from the one with the highest score to the one with lowest.
+	void storeObjectHypothesis(std::string name_, cv::Point2f center_, std::vector<cv::Point2f> corners_, double score_);
 
 
 	/// Sets load_model_flag when the used presses button.
@@ -126,8 +146,6 @@ private:
 
 	/// Load a single model from file indicated by function parameter.
 	void loadSingleModel(std:: string filename_, std::string name_);
-
-
 
 
 	/// Loads image from file.
