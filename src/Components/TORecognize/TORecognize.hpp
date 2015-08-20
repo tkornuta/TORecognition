@@ -170,7 +170,7 @@ private:
 
 
 
-	/// Feature descriptor
+	/// Feature descriptor.
         cv::Ptr<cv::DescriptorExtractor> extractor;
 
 	/// Sets the extreactor according to the current selection (see: prop_extractor_type).

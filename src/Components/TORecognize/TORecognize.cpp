@@ -322,7 +322,7 @@ void TORecognize::storeObjectHypothesis(std::string name_, cv::Point2f center_, 
 	if (prop_recognized_object_limit<1)
 		return;
 
-	// Special case: insert first object hypothesis.
+	// First case: insert first oid.
 	if (recognized_names.size() == 0) {
 		recognized_names.push_back(name_);
 		recognized_centers.push_back(center_);
@@ -337,7 +337,8 @@ void TORecognize::storeObjectHypothesis(std::string name_, cv::Point2f center_, 
 	std::vector<std::vector<cv::Point2f> >::iterator corners_it= recognized_corners.begin();
 	std::vector<double>::iterator scores_it= recognized_scores.begin();
 
-	// Insert in proper order.
+	// Second case: insert in proper order.
+	bool added = false;
 	for (; names_it<recognized_names.end(); names_it++, centers_it++, corners_it++, scores_it++) {
 		if (*scores_it < score_){
 			// Insert here! (i.e. before)
@@ -345,9 +346,18 @@ void TORecognize::storeObjectHypothesis(std::string name_, cv::Point2f center_, 
 			recognized_centers.insert(centers_it, center_);
 			recognized_corners.insert(corners_it, corners_);
 			recognized_scores.insert(scores_it, score_);
+			added = true;
 			break;
 		}//: if
 	}//: for*/
+
+	// Third case: insert at the end.
+	if (!added){
+		recognized_names.push_back(name_);
+		recognized_centers.push_back(center_);
+		recognized_corners.push_back(corners_);
+		recognized_scores.push_back(score_);
+	}//: if
 
 	// Limit the size of vectors.
 	if (recognized_names.size() > prop_recognized_object_limit){
@@ -390,13 +400,13 @@ void TORecognize::onNewImage()
 		extractFeatures(scene_img, scene_keypoints, scene_descriptors);
 		CLOG(LINFO) << "Scene features: " << scene_keypoints.size();
 
-		// Check model.
+		// Iterate - try to detect each model one by one.
 		for (unsigned int m=0; m < models_imgs.size(); m++) {
 			CLOG(LDEBUG) << "Trying to recognize model (" << m <<"): " << models_names[m];
 	
 			if ((models_keypoints[m]).size() == 0) {
-				CLOG(LWARNING) << "Model not valid. Please load model that contain texture";
-				return;
+				CLOG(LWARNING) << "Model "<< models_names[m] << " not valid as it does not contain texture";
+				continue;
 			}//: if
 
 			CLOG(LDEBUG) << "Model features: " << models_keypoints[m].size();
